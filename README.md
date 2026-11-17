@@ -6,6 +6,13 @@
 数据接入（JSON/CSV、字段验证、批次指纹）→ 参数化分析（异步 Python worker）→ 结果复核（指标、图形、明细、解释、批准）→ 定时分发（本地收件箱、CSV/JSON、SHA256）；另有业务总览和审计轨迹。
 三个贯穿全栈的实体：Dataset 数据批次、Job 分析任务、Report 分发计划；辅助 User、Audit、Delivery。
 
+检修口径模块（页面“检修认领”，路由前缀 `/maintenance`）解决“集中检修领用混进日常预测、未来检修又另加一遍”的备料高估：
+- 负责人登记检修工单的备件、日期、计划量；每次修订生成完整同版计划快照（PlanVersion + WorkOrderLine）。
+- 按日历批次认领（ClaimRequest/ClaimItem），同事务校验“不超当天领用总量、不超工单计划量”，并发经 `FOR UPDATE`（PG）或 `BEGIN IMMEDIATE`（SQLite）串行化；`request_key` 幂等，中断可凭同键恢复、重试不重复扣量。
+- 检修口径试算（MaintenanceForecast）以未认领量估计日常需求，叠加预测期尚未领用的检修计划；结果固化计划版本与 SHA256 指纹，计划改版后未批准结果转 stale 且不可批准，已批准结果与简报冻结。
+- 工单看板提供待认领/部分领用/结清状态与当天剩余额度，试算可追查所采用的工单版本。
+
+
 ## 快速启动
 ```bash
 cp .env.example .env
